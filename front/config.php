@@ -13,6 +13,7 @@ use GlpiPlugin\Uxcustomizer\ColorPalette;
 use GlpiPlugin\Uxcustomizer\Config;
 use GlpiPlugin\Uxcustomizer\Lifecycle;
 use GlpiPlugin\Uxcustomizer\MenuOrder;
+use GlpiPlugin\Uxcustomizer\SubMenuOrder;
 use GlpiPlugin\Uxcustomizer\TabOrder;
 
 include('../../../inc/includes.php');
@@ -59,6 +60,13 @@ $activeTab       = $_GET['tab'] ?? 'general';
 $selectedProfile = (int) ($_GET['profiles_id'] ?? $_SESSION['glpiactiveprofile']['id'] ?? 0);
 $rootDoc         = $CFG_GLPI['root_doc'];
 
+// Sub-menu order (global, no profile scoping): categories with live content.
+$subCategories = SubMenuOrder::getCurrentCategories();
+$selCategory   = (string) ($_GET['category'] ?? '');
+if (!in_array($selCategory, $subCategories, true)) {
+    $selCategory = $subCategories[0] ?? '';
+}
+
 // Build a cache-busted URL for a plugin asset (uses the file's mtime so any
 // edit busts the browser cache — these assets are loaded with plain <script>/
 // <link> tags that GLPI does NOT version automatically).
@@ -96,7 +104,7 @@ if ($activeTab === 'general') {
     echo '<p class="text-muted">' . __('Enable or disable each customization module.', 'uxcustomizer') . '</p>';
 
     foreach ([
-        'menuorder' => [__('Menu Order', 'uxcustomizer'), __('Reorder the left navigation menu per profile.', 'uxcustomizer')],
+        'menuorder' => [__('Menu Order', 'uxcustomizer'), __('Reorder the left navigation menu per profile, and the items within each category for everyone.', 'uxcustomizer')],
         'palette'   => [__('Color Palette', 'uxcustomizer'), __('Add a selectable custom color theme.', 'uxcustomizer')],
         'taborder'  => [__('Tab Order', 'uxcustomizer'), __('Reorder the tabs on asset detail pages (Computer, Printer, …).', 'uxcustomizer')],
     ] as $mod => [$label, $desc]) {
@@ -133,6 +141,7 @@ if ($activeTab === 'menuorder') {
         // Profile selector
         echo '<form method="get" class="row g-2 align-items-center mb-3">';
         echo '<input type="hidden" name="tab" value="menuorder">';
+        echo '<input type="hidden" name="category" value="' . htmlspecialchars($selCategory, ENT_QUOTES, 'UTF-8') . '">';
         echo '<div class="col-auto"><label class="col-form-label fw-bold" for="profiles_id">' . __('Profile', 'uxcustomizer') . '</label></div>';
         echo '<div class="col-auto"><select id="profiles_id" name="profiles_id" class="form-select" onchange="this.form.submit()">';
         foreach ((new Profile())->find([], ['name ASC']) as $p) {
@@ -161,6 +170,59 @@ if ($activeTab === 'menuorder') {
         echo '<input type="hidden" name="profiles_id" value="' . $selectedProfile . '">';
         echo '<button type="submit" class="btn btn-outline-danger"><i class="ti ti-rotate me-1"></i>' . __('Reset to default', 'uxcustomizer') . '</button>';
         echo '</form>';
+
+        // ── Sub-menu order: items WITHIN a category, GLOBAL for all users ──
+        echo '<hr class="my-4">';
+        echo '<h4>' . __('Sub-menu order (within a category)', 'uxcustomizer') . '</h4>';
+        echo '<div class="alert alert-info d-flex align-items-center"><i class="ti ti-info-circle me-2"></i>'
+            . __('Drag to reorder the items WITHIN a top-level category (e.g. within Assets: Computer, Monitor, Software…). This applies to ALL users regardless of profile — unlike the profile-specific order above. New items appear at the bottom.', 'uxcustomizer')
+            . '</div>';
+
+        if ($subCategories === []) {
+            echo '<div class="alert alert-warning">' . __('No categories with sub-items found in the current menu.', 'uxcustomizer') . '</div>';
+        } else {
+            // Category selector (preserves the profile selection above)
+            echo '<form method="get" class="row g-2 align-items-center mb-3">';
+            echo '<input type="hidden" name="tab" value="menuorder">';
+            echo '<input type="hidden" name="profiles_id" value="' . $selectedProfile . '">';
+            echo '<div class="col-auto"><label class="col-form-label fw-bold" for="uxc-category">' . __('Category', 'uxcustomizer') . '</label></div>';
+            echo '<div class="col-auto"><select id="uxc-category" name="category" class="form-select" onchange="this.form.submit()">';
+            foreach ($subCategories as $cat) {
+                $selAttr = ($cat === $selCategory) ? ' selected' : '';
+                echo '<option value="' . htmlspecialchars($cat, ENT_QUOTES, 'UTF-8') . '"' . $selAttr . '>'
+                    . htmlspecialchars(MenuOrder::getMenuTitle($cat), ENT_QUOTES, 'UTF-8') . '</option>';
+            }
+            echo '</select></div>';
+            echo '<div class="col"><span class="uxc-status" id="uxc-submenu-status" aria-live="polite"></span></div>';
+            echo '</form>';
+
+            $subItems = SubMenuOrder::getDisplayItems($selCategory);
+            if ($subItems === []) {
+                echo '<div class="alert alert-warning">' . __('No sub-items found for this category.', 'uxcustomizer') . '</div>';
+            } else {
+                echo '<ul id="uxc-submenu-list" class="list-group" data-category="' . htmlspecialchars($selCategory, ENT_QUOTES, 'UTF-8') . '">';
+                foreach ($subItems as $key => $label) {
+                    echo '<li class="list-group-item d-flex align-items-center uxc-submenu-item" data-key="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '">';
+                    echo '<span class="uxc-handle me-2" title="' . __('Drag to reorder', 'uxcustomizer') . '"><i class="ti ti-grip-vertical"></i></span>';
+                    echo '<span class="fw-semibold">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span>';
+                    echo '<span class="badge bg-secondary-lt ms-auto font-monospace">' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '</span>';
+                    echo '</li>';
+                }
+                echo '</ul>';
+
+                echo '<div class="d-flex gap-2 mt-3">';
+                echo '<button type="button" id="uxc-submenu-sort-az" class="btn btn-outline-secondary">'
+                    . '<i class="ti ti-sort-ascending-letters me-1"></i>' . __('Sort alphabetically', 'uxcustomizer') . '</button>';
+                echo '<form method="post" action="' . $rootDoc . '/plugins/uxcustomizer/ajax/submenuorder.php"'
+                    . ' onsubmit="return confirm(\'' . htmlspecialchars(__('Reset sub-menu order for this category? This affects ALL users.', 'uxcustomizer'), ENT_QUOTES, 'UTF-8') . '\');">';
+                echo '<input type="hidden" name="_glpi_csrf_token" class="glpi-csrf-token" value="">';
+                echo '<input type="hidden" name="action" value="reset">';
+                echo '<input type="hidden" name="category" value="' . htmlspecialchars($selCategory, ENT_QUOTES, 'UTF-8') . '">';
+                echo '<button type="submit" class="btn btn-outline-danger"><i class="ti ti-rotate me-1"></i>' . __('Reset to default', 'uxcustomizer') . '</button>';
+                echo '</form>';
+                echo '</div>';
+            }
+        }
     }
 }
 
@@ -325,6 +387,7 @@ echo '</div>';       // container
 // Config for JS + i18n
 echo '<script>window.UxcConfig = ' . json_encode([
     'menuAjax'    => $rootDoc . '/plugins/uxcustomizer/ajax/menuorder.php',
+    'subMenuAjax' => $rootDoc . '/plugins/uxcustomizer/ajax/submenuorder.php',
     'paletteAjax' => $rootDoc . '/plugins/uxcustomizer/ajax/palette.php',
     'tabAjax'     => $rootDoc . '/plugins/uxcustomizer/ajax/taborder.php',
     'i18n'        => [
@@ -345,6 +408,7 @@ echo '<script>(function(){'
 // 404s. Loading our own copy is the only reliable option.
 echo '<script src="' . $asset('public/js/Sortable.min.js') . '"></script>';
 echo '<script src="' . $asset('public/js/menuorder.js') . '"></script>';
+echo '<script src="' . $asset('public/js/submenuorder.js') . '"></script>';
 echo '<script src="' . $asset('public/js/palette.js') . '"></script>';
 echo '<script src="' . $asset('public/js/tabconfig.js') . '"></script>';
 

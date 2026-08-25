@@ -8,7 +8,7 @@
     color: var(--tblr-secondary, #6c757d);
 }
 .uxc-item--chosen .uxc-handle { cursor: grabbing; }
-.uxc-menu-item, .uxc-tab-item { user-select: none; }
+.uxc-menu-item, .uxc-tab-item, .uxc-submenu-item { user-select: none; }
 
 /* Hidden tab in the config list: greyed + struck through (still listed). */
 .uxc-tab-hidden .uxc-tab-label {

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-08-25
+
+### Added
+- **Menu Order**: new **global** sub-menu order — reorder the items *within*
+  a top-level sidebar category (e.g. within Assets: Computer, Monitor,
+  Software, NetworkEquipment, …). Unlike the existing top-level order (saved
+  per profile), this new ordering is global and applies to every user
+  regardless of profile, mirroring how Tab Order already works. Categories
+  and their sub-items are discovered dynamically from the live GLPI menu, so
+  new itemtypes/plugins appear automatically. Backed by a new
+  `glpi_plugin_uxcustomizer_submenuorders` table and `ajax/submenuorder.php`.
+- **Menu Order**: "Sort alphabetically" one-click button on the new
+  sub-menu order list.
+
 ## [3.0.1] - 2026-07-08
 
 ### Fixed

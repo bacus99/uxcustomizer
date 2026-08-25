@@ -10,8 +10,9 @@
  * Install hook — create tables and seed module defaults.
  *
  * Tables:
- *   glpi_plugin_uxcustomizer_configs     key/value store (module toggles, palette JSON)
- *   glpi_plugin_uxcustomizer_menuorders  per-profile menu order (JSON array of keys)
+ *   glpi_plugin_uxcustomizer_configs        key/value store (module toggles, palette JSON)
+ *   glpi_plugin_uxcustomizer_menuorders     per-profile top-level menu order (JSON array of keys)
+ *   glpi_plugin_uxcustomizer_submenuorders  global per-category sub-item order (JSON array of keys)
  *
  * Schema deltas in the upgrade path must each be gated by $DB->fieldExists()/
  * indexExists() (see ../GLPI-Shared/rules/glpi-migration.md). Raw DDL uses
@@ -71,6 +72,21 @@ function plugin_uxcustomizer_install(): bool
         }
     }
 
+    // ── Sub-menu order (global, one row per top-level menu category) ─────
+    $submenuorders = 'glpi_plugin_uxcustomizer_submenuorders';
+    if (!$DB->tableExists($submenuorders)) {
+        $DB->doQueryOrDie("CREATE TABLE `$submenuorders` (
+            `id`            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `category`      VARCHAR(100) NOT NULL COMMENT 'Top-level menu key (assets, management, ...)',
+            `sub_order`     LONGTEXT     NOT NULL COMMENT 'JSON array of submenu item keys (itemtype/class names)',
+            `date_creation` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `date_mod`      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_category` (`category`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+          COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC", 'UX Customizer: create submenuorders table');
+    }
+
     // ── Item-form tab order (global, one row per itemtype) ───────────────
     $taborders = 'glpi_plugin_uxcustomizer_taborders';
     if (!$DB->tableExists($taborders)) {
@@ -111,6 +127,7 @@ function plugin_uxcustomizer_uninstall(): bool
     }
 
     foreach ([
+        'glpi_plugin_uxcustomizer_submenuorders',
         'glpi_plugin_uxcustomizer_taborders',
         'glpi_plugin_uxcustomizer_menuorders',
         'glpi_plugin_uxcustomizer_configs',

@@ -72,34 +72,36 @@ class MenuOrder
     }
 
     /**
-     * Reorder a GLPI menu array to the active profile's saved order. Called from
-     * the redefine_menus hook; GLPI renders from the returned array (order =
-     * display order). Unsaved keys are appended (new plugins go to the bottom).
+     * Reorder a GLPI menu array in two passes:
+     *  1. Per-profile top-level category reorder (this method, unchanged
+     *     behaviour). Unsaved keys are appended (new plugins go to the bottom).
+     *  2. Global per-category sub-item reorder — runs unconditionally, NOT
+     *     gated on the active profile, since sub-menu order applies to
+     *     everyone. See SubMenuOrder::redefineSubMenus().
+     * Called from the redefine_menus hook; GLPI renders from the returned array.
      */
     public static function redefineMenus(array $menu): array
     {
         $profileId = (int) ($_SESSION['glpiactiveprofile']['id'] ?? 0);
-        if ($profileId === 0) {
-            return $menu;
-        }
-
-        $saved = self::getOrder($profileId);
-        if ($saved === null) {
-            return $menu;
-        }
-
-        $reordered = [];
-        foreach ($saved as $key) {
-            if (array_key_exists($key, $menu)) {
-                $reordered[$key] = $menu[$key];
+        if ($profileId !== 0) {
+            $saved = self::getOrder($profileId);
+            if ($saved !== null) {
+                $reordered = [];
+                foreach ($saved as $key) {
+                    if (array_key_exists($key, $menu)) {
+                        $reordered[$key] = $menu[$key];
+                    }
+                }
+                foreach ($menu as $key => $value) {
+                    if (!array_key_exists($key, $reordered)) {
+                        $reordered[$key] = $value;
+                    }
+                }
+                $menu = $reordered;
             }
         }
-        foreach ($menu as $key => $value) {
-            if (!array_key_exists($key, $reordered)) {
-                $reordered[$key] = $value;
-            }
-        }
-        return $reordered;
+
+        return SubMenuOrder::redefineSubMenus($menu);
     }
 
     /**

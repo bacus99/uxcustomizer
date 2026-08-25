@@ -12,7 +12,7 @@ Super-administrator **interface customization** for GLPI 11, organised as indepe
 
 | Module | What it does | Scope | Mechanism |
 |--------|--------------|-------|-----------|
-| **Menu Order** | Drag-and-drop reorder of the left navigation menu (Assets, Assistance, Management, Tools, Administration, Setup…). | Per **profile** | `redefine_menus` hook (official GLPI API) |
+| **Menu Order** | Drag-and-drop reorder of the left navigation menu (Assets, Assistance, Management, Tools, Administration, Setup…), plus reordering the items *within* a category (e.g. within Assets: Computer, Monitor, Software…). | Top-level: per **profile**. Sub-menu: **global** | `redefine_menus` hook (official GLPI API) |
 | **Color Palette** | Define a custom color theme (primary, accent, page background, sidebar) and offer it — plus a matching **dark** variant — as a **selectable** palette. | Opt-in per **user** | Native GLPI theme (SCSS in the themes directory) |
 | **Tab Order** | Reorder **and hide/unhide** the tabs on asset detail pages (Computer, Monitor, Network equipment, Printer, Software…). | **Global** per itemtype | Client-side reorder of the rendered tab bar |
 | **Lifecycle** | Set an asset **retention period** (years) per Computer type, with a default. Consumed by the Impact360 plugin's Computer Dashboard to compute a retirement date. | Global | Config (retention key) |
@@ -48,6 +48,8 @@ Enable/disable each module with a switch. Disabling a module instantly removes i
 ### Menu Order
 Pick a **profile**, drag the top-level menu items into the order you want — changes save instantly. Each profile keeps its own order; **Reset to default** restores GLPI's native order for that profile.
 
+Below that, **Sub-menu order** lets you drag the items *within* a category (e.g. within Assets: Computer, Monitor, Software…) — this applies **globally to all users**, regardless of profile. Use **Sort alphabetically** for a one-click A-Z order, or **Reset to default** to restore GLPI's native order for that category.
+
 ### Color Palette
 Choose the colors (primary, accent, page background, sidebar background/text), name the palette, and **Save**. This writes a GLPI theme; it appears in every user's **My Settings → Color palette** picker (and the **Setup → General** site default). It is **opt-in** — it does **not** override anyone's chosen theme. Tick **"Also generate a matching dark theme"** to publish a dark variant alongside the light one.
 
@@ -58,14 +60,14 @@ Pick an **asset type** (Computer, Monitor, Network equipment, Peripheral, Phone,
 Set how many years each Computer type is kept before replacement (with a default fallback). The **[Impact360](https://github.com/bacus99/impact360)** plugin's Computer Dashboard reads this — together with the purchase date — to show a retirement date. Editing stays here even though the Dashboard and Impact Map moved to Impact360.
 ## How it works
 
-- **Menu Order** registers a `redefine_menus` callback. GLPI renders the sidebar from the array this hook returns, so the plugin re-keys it into the saved per-profile order. It never mutates session state directly.
+- **Menu Order** registers a `redefine_menus` callback. GLPI renders the sidebar from the array this hook returns, so the plugin re-keys it into the saved per-profile top-level order, then re-keys each category's items into the saved global sub-menu order. It never mutates session state directly.
 - **Color Palette** writes an SCSS palette file into GLPI's themes directory (`GLPI_THEMES_DIR`). GLPI discovers it automatically and lists it as a selectable theme — there is no plugin API to register a theme in code, so this is the supported, non-intrusive route.
 - **Tab Order** — GLPI 11 exposes no server hook to reorder item-form tabs, so a small script loaded on every page detects the asset type and reorders/hides the rendered Bootstrap tab bar (`#tabspanel`) according to the saved settings. It is DOM-based by necessity and degrades gracefully (does nothing if GLPI's markup changes).
 
 ## Compatibility & limitations
 
 - Built and tested against **GLPI 11.0.x**. The Tab Order module depends on GLPI's rendered tab markup; a future GLPI release could change it and require a plugin update (the other two modules use stable APIs).
-- Tab Order and Color Palette apply to **everyone** (global / opt-in per user respectively); Menu Order is **per profile**.
+- Tab Order and Color Palette apply to **everyone** (global / opt-in per user respectively); Menu Order's top-level reorder is **per profile**, while its sub-menu reorder is **global**.
 
 ## Building a release
 
