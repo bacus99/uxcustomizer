@@ -20,7 +20,7 @@ UX Customizer bundles super-admin interface customizations for GLPI 11 as indepe
 - <strong>Tab Order</strong> — reorder and hide tabs on asset detail pages per itemtype.<br />
 - <strong>Lifecycle</strong> — set an asset retention period (years) per Computer type, used to compute a retirement date.<br /><br />
 Each module can be enabled or disabled independently. CSRF-compliant, PSR-4 autoloaded, GLPI 11 native.<br />
-<em>Note: the Computer Dashboard and the Impact Map moved to the dedicated <strong>Impact360</strong> plugin in v3.0.</em>
+<em>Note: the Computer Dashboard and the Impact Map moved to the dedicated <strong>Impact360</strong> plugin in v3.0. SQL Server login/server-role visibility moved to the dedicated <strong>MSSQL Security</strong> plugin in v4.0.</em>
          ]]></en>
          <fr><![CDATA[
 UX Customizer regroupe des personnalisations de l'interface GLPI 11 pour super-administrateurs sous forme de modules activables indépendamment.<br /><br />
@@ -30,7 +30,7 @@ UX Customizer regroupe des personnalisations de l'interface GLPI 11 pour super-a
 - <strong>Ordre des onglets</strong> — réorganisation et masquage des onglets des fiches d'inventaire par type.<br />
 - <strong>Cycle de vie</strong> — définit une durée de rétention (années) par type d'ordinateur, utilisée pour calculer une date de remplacement.<br /><br />
 Chaque module est activable indépendamment. Conforme CSRF, chargement PSR-4, compatible GLPI 11.<br />
-<em>Note : le Tableau de bord Ordinateur et la Carte d'impact ont été déplacés vers le plugin dédié <strong>Impact360</strong> en v3.0.</em>
+<em>Note : le Tableau de bord Ordinateur et la Carte d'impact ont été déplacés vers le plugin dédié <strong>Impact360</strong> en v3.0. La visibilité des connexions et rôles serveur SQL Server a été déplacée vers le plugin dédié <strong>MSSQL Security</strong> en v4.0.</em>
          ]]></fr>
       </long>
    </description>
@@ -45,6 +45,16 @@ Chaque module est activable indépendamment. Conforme CSRF, chargement PSR-4, co
    </authors>
 
    <versions>
+      <version>
+         <num>4.0.0</num>
+         <compatibility>~11.0.0</compatibility>
+         <download_url>https://github.com/bacus99/uxcustomizer/releases/download/4.0.0/glpi-uxcustomizer-4.0.0.tar.bz2</download_url>
+      </version>
+      <version>
+         <num>3.2.0</num>
+         <compatibility>~11.0.0</compatibility>
+         <download_url>https://github.com/bacus99/uxcustomizer/releases/download/3.2.0/glpi-uxcustomizer-3.2.0.tar.bz2</download_url>
+      </version>
       <version>
          <num>3.1.0</num>
          <compatibility>~11.0.0</compatibility>

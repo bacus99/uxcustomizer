@@ -17,15 +17,19 @@ use GlpiPlugin\Uxcustomizer\Config;
 use GlpiPlugin\Uxcustomizer\Menu;
 use GlpiPlugin\Uxcustomizer\MenuOrder;
 
-define('PLUGIN_UXCUSTOMIZER_VERSION',          '3.1.0');
+define('PLUGIN_UXCUSTOMIZER_VERSION',          '4.0.0');
 define('PLUGIN_UXCUSTOMIZER_MIN_GLPI_VERSION', '11.0.0');
-define('PLUGIN_UXCUSTOMIZER_MAX_GLPI_VERSION', '11.0.99');
+define('PLUGIN_UXCUSTOMIZER_MAX_GLPI_VERSION', '11.99.99');
 
 function plugin_init_uxcustomizer(): void
 {
     global $PLUGIN_HOOKS;
 
-    $PLUGIN_HOOKS[Hooks::CSRF_COMPLIANT]['uxcustomizer'] = true;
+    // Literal key, not Hooks::CSRF_COMPLIANT: GLPI 12 removed that
+    // constant, and referencing it is a fatal at plugin load (it
+    // surfaces as the misleading "function plugin_<slug>_install is
+    // missing"). GLPI 11 and 12 both read the string key identically.
+    $PLUGIN_HOOKS['csrf_compliant']['uxcustomizer'] = true;
 
     // Config page (wrench icon on Setup > Plugins). Enforces config UPDATE itself.
     $PLUGIN_HOOKS['config_page']['uxcustomizer'] = 'front/config.php';
@@ -57,9 +61,12 @@ function plugin_init_uxcustomizer(): void
         }
 
         // NB (v3.0): the Computer Dashboard and the Impact Map moved to the
-        // dedicated `impact360` plugin. uxcustomizer now owns menu order, color
-        // palette, tab order, and the asset-retention policy (Lifecycle), which
-        // impact360's dashboard consumes when this plugin is active.
+        // dedicated `impact360` plugin. NB (v4.0): "SQL logins" (added v3.2)
+        // moved to the dedicated `mssqlsec` plugin — unrelated to UI
+        // customization, same reasoning as the v3.0 split. uxcustomizer now
+        // owns menu order, color palette, tab order, and the asset-retention
+        // policy (Lifecycle), which impact360's dashboard consumes when this
+        // plugin is active.
     } catch (\Throwable $e) {
         // Config unavailable during early boot / install — skip module hooks.
     }

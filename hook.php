@@ -39,6 +39,9 @@ function plugin_uxcustomizer_install(): bool
         $DB->insert($configs, ['key' => 'module_palette_enabled',   'value' => '1']);
         $DB->insert($configs, ['key' => 'module_taborder_enabled',  'value' => '1']);
         // (v3.0) dashboard + impactmap modules moved to the impact360 plugin.
+        // (v4.0) the sqlprincipals module (SQL logins) moved to the mssqlsec
+        // plugin — its config key, table, and right are no longer created
+        // here; see that plugin's own hook.php.
         // No palette row is seeded: ColorPalette::get() returns sensible defaults
         // until the admin saves one (which writes the SCSS theme file).
     }
@@ -127,6 +130,10 @@ function plugin_uxcustomizer_uninstall(): bool
     }
 
     foreach ([
+        // Orphaned from the pre-4.0 "SQL logins" module, now the mssqlsec
+        // plugin — dropped here too (IF EXISTS, so harmless either way) as a
+        // safety net for any install that still has it lying around.
+        'glpi_plugin_uxcustomizer_sqlprincipals',
         'glpi_plugin_uxcustomizer_submenuorders',
         'glpi_plugin_uxcustomizer_taborders',
         'glpi_plugin_uxcustomizer_menuorders',

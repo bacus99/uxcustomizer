@@ -81,11 +81,11 @@ echo '<h2><i class="ti ti-adjustments me-2"></i>' . __('UX Customizer', 'uxcusto
 
 // ── Section tabs ─────────────────────────────────────────────────────────
 $tabs = [
-    'general'   => ['ti-settings',         __('General', 'uxcustomizer')],
-    'menuorder' => ['ti-menu-2',           __('Menu Order', 'uxcustomizer')],
-    'palette'   => ['ti-palette',          __('Color Palette', 'uxcustomizer')],
-    'taborder'  => ['ti-layout-navbar',    __('Tab Order', 'uxcustomizer')],
-    'lifecycle' => ['ti-recycle',          __('Lifecycle', 'uxcustomizer')],
+    'general'       => ['ti-settings',      __('General', 'uxcustomizer')],
+    'menuorder'     => ['ti-menu-2',        __('Menu Order', 'uxcustomizer')],
+    'palette'       => ['ti-palette',       __('Color Palette', 'uxcustomizer')],
+    'taborder'      => ['ti-layout-navbar', __('Tab Order', 'uxcustomizer')],
+    'lifecycle'     => ['ti-recycle',       __('Lifecycle', 'uxcustomizer')],
 ];
 echo '<ul class="nav nav-tabs mt-3" role="tablist">';
 foreach ($tabs as $key => [$icon, $label]) {
@@ -104,9 +104,9 @@ if ($activeTab === 'general') {
     echo '<p class="text-muted">' . __('Enable or disable each customization module.', 'uxcustomizer') . '</p>';
 
     foreach ([
-        'menuorder' => [__('Menu Order', 'uxcustomizer'), __('Reorder the left navigation menu per profile, and the items within each category for everyone.', 'uxcustomizer')],
-        'palette'   => [__('Color Palette', 'uxcustomizer'), __('Add a selectable custom color theme.', 'uxcustomizer')],
-        'taborder'  => [__('Tab Order', 'uxcustomizer'), __('Reorder the tabs on asset detail pages (Computer, Printer, …).', 'uxcustomizer')],
+        'menuorder'     => [__('Menu Order', 'uxcustomizer'), __('Reorder the left navigation menu per profile, and the items within each category for everyone.', 'uxcustomizer')],
+        'palette'       => [__('Color Palette', 'uxcustomizer'), __('Add a selectable custom color theme.', 'uxcustomizer')],
+        'taborder'      => [__('Tab Order', 'uxcustomizer'), __('Reorder the tabs on asset detail pages (Computer, Printer, …).', 'uxcustomizer')],
     ] as $mod => [$label, $desc]) {
         $checked = Config::isModuleEnabled($mod) ? ' checked' : '';
         echo '<label class="form-check form-switch">';

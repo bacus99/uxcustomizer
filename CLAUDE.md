@@ -13,14 +13,14 @@ UX Customizer is the **super-admin interface customization** plugin for GLPI 11,
 3. **Tab Order** — reorder **and hide** tabs on asset detail pages, globally per itemtype. Client-side DOM reorder (`tabreorder.js`) — GLPI 11 has no server-side hook for form tabs.
 4. **Lifecycle** — asset retention periods (years) per Computer type + default. **Consumed by the sibling `impact360` plugin** (retirement dates on its Computer Dashboard).
 
-History: v3.0 split the Impact Map and Computer Dashboard out into [`../impact360`](../impact360/CLAUDE.md). What remains here is the list above.
+History: v3.0 split the Impact Map and Computer Dashboard out into [`../impact360`](../impact360/CLAUDE.md). v3.2 briefly added a "SQL logins" module (SQL Server login/role visibility on `DatabaseInstance`); v4.0 extracted it into its own plugin, [`../mssqlsec`](../mssqlsec/CLAUDE.md) — that data was unrelated to UI customization, the same reasoning as the v3.0 split. If you're looking for that feature, it now lives there (including the full design/debugging history in its `sqlprincipals-handoff.md` and `CHANGELOG.md`).
 
 ## Architecture
 
 ```
 uxcustomizer/
-├── setup.php                 version (3.1.x), conditional module hooks
-├── hook.php                  install/uninstall — 4 tables, legacy taborder migration
+├── setup.php                 version (4.x), conditional module hooks
+├── hook.php                  install/uninstall — 3 tables, legacy taborder migration
 ├── src/                      PSR-4: GlpiPlugin\Uxcustomizer\
 │   ├── Config.php            key/value store + module toggles
 │   ├── ColorPalette.php      SCSS theme generation → GLPI_THEMES_DIR
@@ -48,6 +48,7 @@ Tables: `glpi_plugin_uxcustomizer_configs` (key/value: module toggles, palette J
 - **Contract with impact360:** `Lifecycle` is read by impact360 via `Plugin::isPluginActive` + `class_exists` guard on their side. Renaming/moving `Lifecycle` or changing the retention JSON shape breaks that consumer — coordinate both repos.
 - **Legacy migration:** install copies data from the old `taborder` plugin table (`glpi_plugin_taborder_order`) if present.
 - **No local PHP** on the dev machine; `php -l` runs on the GLPI server / CI. Use PowerShell (the Bash tool fails here).
+- **v4.0 removed the "SQL logins" module** (`SqlPrincipal`/`Profile`/`SqlPrincipalMenu` classes, `front/sqlprincipal.php`, `tools/`, the `glpi_plugin_uxcustomizer_sqlprincipals` table) — it now lives in the standalone `mssqlsec` plugin. `hook.php`'s uninstall still drops that table `IF EXISTS` as a safety net for installs that still have it; the profile right (`plugin_uxcustomizer_sqlprincipals`) was left for the admin to clean up manually if desired (`ProfileRight::deleteProfileRights()`), since removing rights out from under a running install is a data-affecting action better done deliberately, not silently in an upgrade hook.
 
 ## Global rules (reminder)
 

@@ -5,6 +5,150 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-09-10
+
+### Removed — split: "SQL logins" extracted to the standalone `mssqlsec` plugin
+SQL Server login/server-role visibility (added in 3.2.0, below) is unrelated to
+UI customization — the same reasoning that split the Impact Map + Computer
+Dashboard out into `impact360` at v3.0. It now lives in its own plugin:
+[mssqlsec](https://github.com/bacus99/mssqlsec).
+
+- Removed `src/SqlPrincipal.php`, `src/Profile.php`, `src/SqlPrincipalMenu.php`,
+  `src/PluginUxcustomizerSqlPrincipal.php`, `front/sqlprincipal.php`, `tools/`
+  (all four PowerShell scripts), and the `sqlprincipals`/`sqlprincipals_enabled`
+  module toggle (General tab, `Config`).
+- `hook.php` no longer creates `glpi_plugin_uxcustomizer_sqlprincipals` or calls
+  `Profile::install()`/`::uninstall()` for this feature. Uninstall still drops
+  that table `IF EXISTS` as a safety net for installs that still have it. The
+  `plugin_uxcustomizer_sqlprincipals` profile right is intentionally left for
+  manual cleanup (`ProfileRight::deleteProfileRights()`) rather than silently
+  removed in an upgrade hook.
+- No data migration: the table's contents were not carried over to
+  `mssqlsec` — re-run the collector against the new plugin's itemtype
+  (`PluginMssqlsecSqlPrincipal`) to repopulate it there. See
+  `mssqlsec`'s own CHANGELOG for the full history of this feature's design and
+  the production issues found and fixed while it lived here (rights, the
+  legacy-API flat-class-name requirement, a `Content-Type` bug in the push
+  script, search-option id collisions, and more) — all fixed there too.
+- `uxcustomizer` is back to four modules: Menu Order, Color Palette, Tab
+  Order, Lifecycle.
+
+## [3.2.0] - 2026-09-08
+
+### Added
+- **SQL logins** (new module): a "SQL logins" tab on core `DatabaseInstance`
+  assets, listing SQL Server principals (name, type, server roles, disabled /
+  sysadmin flags, last-collected timestamp) pushed by an external PowerShell
+  collector through GLPI's legacy REST API — nothing in the plugin connects to
+  SQL Server itself. Current-state snapshot only (one row per instance/login,
+  upserted and pruned on each collection run); membership *history* stays in
+  the DBA-owned MySQL/Metabase table.
+  - Gated by its own dedicated right (`plugin_uxcustomizer_sqlprincipals`),
+    **not** `DatabaseInstance` READ — a fleet-wide sysadmin-membership list is
+    a recon list. New "UX Customizer" tab on GLPI profiles to grant it.
+  - Reachable from the search engine (`front/sqlprincipal.php`) for
+    cross-entity questions like "which instances have login X" / "show every
+    sysadmin membership in the fleet" — including a direct sidebar entry
+    (`SqlPrincipalMenu`, under the 'management' menu category) gated on the same
+    dedicated right, not `DatabaseInstance` READ or `config` UPDATE, so a
+    reviewer with just that right can reach it without needing super-admin
+    access or knowing a specific instance to open first.
+  - Login-count / sysadmin-count / last-audited roll-up shown both on the tab
+    and directly under the `DatabaseInstance` form itself.
+  - Read-only fleet summary + top sysadmin-count table
+    (`SqlPrincipal::showFleetSummary()`) at the top of the Management → SQL
+    logins page, above the search grid — not a separate Setup tab (see Changed
+    below for why that moved). Instances are labelled by their linked host's
+    name (falling back to `HOST\INSTANCE` for a named instance), not the bare
+    `DatabaseInstance` name — that field is frequently just "MSSQLSERVER"
+    (SQL Server's own default-instance service name), which made the table
+    unreadable when most rows shared the same label
+    (`SqlPrincipal::displayNameForInstance()`).
+  - New `tools/Get-GlpiMssqlInstance.ps1` (resolves each GLPI `DatabaseInstance`
+    to a SQL Server connect target), `tools/Get-SqlServerRoleMembership.ps1`
+    (every login/group on an instance — `sys.server_principals` LEFT JOINed to
+    `sys.server_role_members`, so a login with **no** elevated role still shows
+    up — and whatever server roles it holds), and
+    `tools/Push-GlpiSqlPrincipal.ps1`: batched upsert (POST for new logins, PUT
+    for existing ones) plus per-instance stale-row cleanup, matching the
+    table's `(databaseinstances_id, name)` unicity key. Scoped per instance so
+    an unreachable server never has its previously-collected rows wiped.
+  - New `glpi_plugin_uxcustomizer_sqlprincipals` table (with `entities_id` /
+    `is_recursive`, inherited from the parent `DatabaseInstance` and never
+    client-settable, so entity restriction applies the same way it does for
+    every other entity-aware asset).
+  - New `tools/Invoke-SqlPrincipalPipeline.ps1`: chains the three scripts above
+    into one scheduled-task entry point, writing a single consolidated,
+    timestamped log per run (default `tools/Logs/`, auto-pruned past a
+    configurable retention) ending in a `SUCCESS`/`FAILURE` line, plus a
+    matching process exit code — a script that never sets one makes Task
+    Scheduler report success regardless of what actually happened internally,
+    which this specifically avoids.
+  - New `last_active_date` column: the most recent `sys.dm_exec_sessions`
+    `login_time` seen for a login among sessions open at collection time
+    (`tools/Get-SqlServerRoleMembership.ps1`, requires `VIEW SERVER STATE`).
+    Deliberately **not** a true login history — it's blank for a login that
+    connected and disconnected between collection runs — since that would
+    need SQL Server Audit or an Extended Events session enabled fleet-wide, a
+    separate infrastructure decision. Shown on the per-instance tab and as a
+    selectable search-page column ("Last active session").
+  - New flat `PluginUxcustomizerSqlPrincipal` alias class (`src/`, loaded via
+    an explicit `require_once` inside `plugin_init_uxcustomizer()`'s early-boot
+    try/catch — NOT at file scope, which broke plugin-state-check on every
+    page, see Fixed below), purely so the legacy REST API can address the
+    itemtype — confirmed against production that GLPI's legacy API resolves
+    itemtypes with a literal `class_exists()` on the URL segment, with **no**
+    PSR-4 namespace translation, so `GlpiPlugin\Uxcustomizer\SqlPrincipal`
+    alone 400s with `ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM` on
+    `/apirest.php/…`. Every other entry point (tabs, `Search::show()`, massive
+    actions) keeps using the real namespaced class unchanged.
+
+### Fixed
+- **SQL logins**: `Profile::getAllRights()` only ever exposed/granted **READ**
+  for `plugin_uxcustomizer_sqlprincipals` — not even to super-admin. Every
+  collector push (POST/PUT/DELETE) 400'd because `CommonDBTM::canCreate()`/
+  `canUpdate()`/`canPurge()` are enforced by the REST API regardless of there
+  being no add/edit form. Now exposes and grants the full
+  READ/CREATE/UPDATE/DELETE/PURGE set, matching every other write-capable
+  plugin right in this account. Whatever profile the collector's own API
+  account uses still needs it granted explicitly (only super-admin gets it
+  automatically at install) — Setup → Profiles → that profile → UX Customizer
+  tab.
+- A file-scope `require_once` for the flat alias class in `setup.php` broke
+  GLPI's plugin-state-check pass (fired on **every** page by a post-boot
+  listener, which reads `plugin_version_uxcustomizer()` from `setup.php`
+  without necessarily having this plugin's own PSR-4 autoloading active yet) —
+  manifested as "Unable to load plugin uxcustomizer information" site-wide.
+  Moved inside `plugin_init_uxcustomizer()`'s existing try/catch instead.
+- `SqlPrincipal::rawSearchOptions()` appended a duplicate search-option id `1`
+  ("Login") on top of the one `CommonDBTM::rawSearchOptions()` already reserves
+  for "Name" — logged a "Duplicate key" warning and silently dropped one entry.
+  Now relabels the inherited id-1 entry in place instead.
+- `tools/Push-GlpiSqlPrincipal.ps1`: `Invoke-GlpiApi` set `Content-Type` via the
+  `-Headers` hashtable instead of `Invoke-RestMethod`'s dedicated `-ContentType`
+  parameter — invisible on every GET call (no body, so it never mattered) but
+  meant GLPI's PHP never reliably received a proper JSON content type on
+  POST/PUT, so every create/update 400'd even once rights and the itemtype
+  alias were fixed. Confirmed live: an identical payload sent via `curl.exe`
+  succeeded while the script's own `Invoke-RestMethod` call still failed.
+- The fleet search page's "Database Instance" column showed
+  `DatabaseInstance::name` as plain, unclickable text — often just
+  "MSSQLSERVER" on every row (see above), and with no link through to
+  anything. New "Server" column (search option id 9,
+  `SqlPrincipal::getSpecificValueToDisplay()`) shows the resolved host name as
+  an actual link to the instance's form; the original "Database Instance"
+  column is kept as-is for its filterable dropdown. Also added "Date created"
+  (id 8, `date_creation`) as a selectable column.
+
+### Changed
+- **SQL logins**: removed the "SQL logins" tab from Setup → UX Customizer.
+  It duplicated the fleet summary now shown at the top of Management → SQL
+  logins (`SqlPrincipal::showFleetSummary()`, above the search grid) — but
+  reaching it required `config` UPDATE, the same super-admin-only
+  reachability problem the dedicated right and `SqlPrincipalMenu` exist to
+  avoid for everything else in this feature. The General tab's module on/off
+  toggle is unaffected.
+
 ## [3.1.0] - 2026-08-25
 
 ### Added
